@@ -34,7 +34,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="CommandLine, Version=2.9.1.0, Culture=neutral, PublicKeyToken=5a870481e358d379, processorArchitecture=MSIL">
-      <HintPath>packages\CommandLineParser.2.9.1\lib\net461\CommandLine.dll</HintPath>
+      <HintPath>..\packages\CommandLineParser.2.9.1\lib\net461\CommandLine.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -49,12 +52,37 @@
   <ItemGroup>
     <Compile Include="BatchProcessor.cs" />
     <Compile Include="CliProgram.cs" />
+    <Compile Include="Data.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Info.cs" />
+    <Compile Include="RegexFilterConfig.cs" />
+    <Compile Include="RegexFilterProcessor.cs" />
+    <Compile Include="RegexHelper.cs" />
+    <Compile Include="Settings.cs" />
+    <Compile Include="Stream.cs" />
+    <Compile Include="Subtitle.cs" />
+    <Compile Include="Subtitles.cs" />
+    <Compile Include="SubtitlesType.cs" />
+    <Compile Include="SwearWordFilter.cs" />
+    <Compile Include="Tool.cs" />
+    <Compile Include="Video.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="packages.config" />
+    <None Include="packages_cli.config" />
+    <None Include="simplified_filter_config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="example_filter_config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="example_filter.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="README_CLI.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
