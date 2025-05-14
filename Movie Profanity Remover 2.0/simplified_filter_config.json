@@ -1,0 +1,27 @@
+{
+  "Name": "Standard Profanity Filter",
+  "Description": "Standard configuration with common profanity patterns using (^.*WORD.*$) format",
+  "IncludePatterns": [
+    "(^.*ass.*$)",
+    "(^.*fuck.*$)",
+    "(^.*shit.*$)",
+    "(^.*bitch.*$)",
+    "(^.*damn.*$)",
+    "(^.*hell.*$)",
+    "(^.*cunt.*$)",
+    "(^.*dick.*$)",
+    "(^.*cock.*$)",
+    "(^.*bastard.*$)",
+    "(^.*asshole.*$)",
+    "(^.*motherfucker.*$)",
+    "(^.*bullshit.*$)",
+    "(^.*goddamn.*$)",
+    "(^.*piss.*$)",
+    "(^.*pussy.*$)",
+    "(^.*whore.*$)",
+    "(^.*slut.*$)",
+    "(^.*tits.*$)"
+  ],
+  "CaseSensitive": false,
+  "AssumeWordBoundary": false
+}

@@ -1,0 +1,7 @@
+{
+  "Name": "Deprecated Example Filter",
+  "Description": "This file has been deprecated. Please use simplified_filter_config.json instead.",
+  "IncludePatterns": [],
+  "CaseSensitive": false,
+  "AssumeWordBoundary": false
+}

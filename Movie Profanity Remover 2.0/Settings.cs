@@ -47,6 +47,12 @@ namespace Movie_Profanity_Remover_2._0
 
         public List<string> WordFullCustom = new List<string>();
 
+        // Regex patterns for filtering
+        public List<string> RegexIncludePatterns = new List<string>();
+
+        // Flag to enable regex filtering
+        public bool UseRegexFiltering = false;
+
         public bool WordSingleAss = false;
         public bool WordSingleAsshole = false;
         public bool WordSingleBastard = false;
@@ -67,5 +73,9 @@ namespace Movie_Profanity_Remover_2._0
         public bool WordSingleShit = false;
 
         public List<string> WordSingleCustom = new List<string>();
+
+        // Regex patterns for single word filtering
+        public List<string> SingleRegexIncludePatterns = new List<string>();
+        public List<string> SingleRegexExcludePatterns = new List<string>();
     }
 }

@@ -62,44 +62,86 @@ namespace Movie_Profanity_Remover_2._0
 
             video.Subtitles = subtitles;
 
+            // Create a regex filter processor if regex filtering is enabled
+            RegexFilterProcessor regexFilter = null;
+            if (Tool.Settings.UseRegexFiltering &&
+                ((Tool.Settings.RegexIncludePatterns != null && Tool.Settings.RegexIncludePatterns.Count > 0) ||
+                 (Tool.Settings.RegexExcludePatterns != null && Tool.Settings.RegexExcludePatterns.Count > 0)))
+            {
+                regexFilter = RegexFilterProcessor.FromSettings();
+            }
+
             for (int i = 0; i < video.Subtitles.Count; i++)
             {
-                foreach (string word in video.SwearWordsFull)
+                // Check for regex matches if regex filtering is enabled
+                if (regexFilter != null && regexFilter.ContainsMatch(video.Subtitles[i].Text))
                 {
-                    KeyValuePair<int, int> Indexes = SwearWord(video.Subtitles[i].Text, word);
-
-                    if (Indexes.Key != -1 && Indexes.Value != -1)
+                    video.Subtitles[i].Remove.Add(new KeyValuePair<TimeSpan, TimeSpan>(video.Subtitles[i].Start, video.Subtitles[i].End));
+                    video.Subtitles[i].RemoveFlag = true;
+                }
+                else
+                {
+                    // Check for exact word matches
+                    foreach (string word in video.SwearWordsFull)
                     {
-                        video.Subtitles[i].Remove.Add(new KeyValuePair<TimeSpan, TimeSpan>(video.Subtitles[i].Start, video.Subtitles[i].End));
-                        video.Subtitles[i].RemoveFlag = true;
-                        break;
+                        KeyValuePair<int, int> Indexes = SwearWord(video.Subtitles[i].Text, word);
+
+                        if (Indexes.Key != -1 && Indexes.Value != -1)
+                        {
+                            video.Subtitles[i].Remove.Add(new KeyValuePair<TimeSpan, TimeSpan>(video.Subtitles[i].Start, video.Subtitles[i].End));
+                            video.Subtitles[i].RemoveFlag = true;
+                            break;
+                        }
                     }
                 }
 
-                foreach (string word in video.SwearWordsSingle)
+                // Check for single word matches
+                if (Tool.Settings.SingleWord)
                 {
-                    KeyValuePair<int, int> Indexes = SwearWord(video.Subtitles[i].Text, word);
-
-                    if (Indexes.Key != -1 && Indexes.Value != -1)
+                    // Check for regex single word matches if regex filtering is enabled
+                    if (regexFilter != null && !video.Subtitles[i].RemoveFlag)
                     {
-                        video.Subtitles[i].RemoveFlag = true;
-                        var remove = video.Subtitles[i].Remove;
-                        remove.AddRange(SwearWordIntervals(video.Subtitles[i], word, video.SingleWordBefore, video.SingleWordAfter));
-
-                        int RemoveCount = remove.Count - 1;
-
-                        for (int j = 0; j < RemoveCount; j++)
+                        var matches = regexFilter.FindMatches(video.Subtitles[i].Text);
+                        if (matches.Count > 0)
                         {
-                            if (remove[j].Value > remove[j + 1].Key)
-                            {
-                                remove[j] = new KeyValuePair<TimeSpan, TimeSpan>(remove[j].Key, remove[j + 1].Value);
-                                remove.RemoveAt(j + 1);
-                                j--;
-                                RemoveCount--;
-                            }
-                        }
+                            video.Subtitles[i].RemoveFlag = true;
 
-                        video.Subtitles[i].Remove = remove;
+                            // Add intervals for each match
+                            foreach (var match in matches)
+                            {
+                                string matchText = match.Value;
+                                int matchIndex = match.Index;
+
+                                // Calculate the time interval for this match
+                                double totalMs = (video.Subtitles[i].End - video.Subtitles[i].Start).TotalMilliseconds;
+                                int midPoint = matchIndex + (matchText.Length / 2);
+                                int timeframe = (int)((double)midPoint / video.Subtitles[i].Text.Length * totalMs);
+
+                                TimeSpan start = TimeSpan.FromMilliseconds(video.Subtitles[i].Start.TotalMilliseconds + timeframe - video.SingleWordBefore);
+                                TimeSpan end = start + TimeSpan.FromMilliseconds(video.SingleWordBefore + video.SingleWordAfter);
+
+                                video.Subtitles[i].Remove.Add(new KeyValuePair<TimeSpan, TimeSpan>(start, end));
+                            }
+
+                            // Merge overlapping intervals
+                            MergeOverlappingIntervals(video.Subtitles[i]);
+                        }
+                    }
+
+                    // Check for exact single word matches
+                    foreach (string word in video.SwearWordsSingle)
+                    {
+                        KeyValuePair<int, int> Indexes = SwearWord(video.Subtitles[i].Text, word);
+
+                        if (Indexes.Key != -1 && Indexes.Value != -1)
+                        {
+                            video.Subtitles[i].RemoveFlag = true;
+                            var remove = video.Subtitles[i].Remove;
+                            remove.AddRange(SwearWordIntervals(video.Subtitles[i], word, video.SingleWordBefore, video.SingleWordAfter));
+
+                            // Merge overlapping intervals
+                            MergeOverlappingIntervals(video.Subtitles[i]);
+                        }
                     }
                 }
             }
@@ -130,6 +172,46 @@ namespace Movie_Profanity_Remover_2._0
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Merges overlapping intervals in a subtitle's Remove list.
+        /// </summary>
+        /// <param name="subtitle">The subtitle containing intervals to merge.</param>
+        private static void MergeOverlappingIntervals(Subtitle subtitle)
+        {
+            if (subtitle.Remove.Count <= 1)
+                return;
+
+            // Sort intervals by start time
+            var intervals = subtitle.Remove.OrderBy(i => i.Key).ToList();
+
+            var merged = new List<KeyValuePair<TimeSpan, TimeSpan>>();
+            var current = intervals[0];
+
+            for (int i = 1; i < intervals.Count; i++)
+            {
+                // If current interval overlaps with the next one, merge them
+                if (current.Value >= intervals[i].Key)
+                {
+                    current = new KeyValuePair<TimeSpan, TimeSpan>(
+                        current.Key,
+                        current.Value > intervals[i].Value ? current.Value : intervals[i].Value
+                    );
+                }
+                else
+                {
+                    // No overlap, add current to result and move to next
+                    merged.Add(current);
+                    current = intervals[i];
+                }
+            }
+
+            // Add the last interval
+            merged.Add(current);
+
+            // Update the subtitle's Remove list
+            subtitle.Remove = merged;
         }
 
         public static List<KeyValuePair<TimeSpan, TimeSpan>> SwearWordIntervals(Subtitle subtitle, string word, int beforeMS, int afterMS)
@@ -283,61 +365,78 @@ namespace Movie_Profanity_Remover_2._0
         private static void ReplaceWords(Video video)
         {
             video.SubtitlesNew = new List<Subtitle>();
-            //List<string> Lines = new List<string>();
+
+            // Create a regex filter processor if regex filtering is enabled
+            RegexFilterProcessor regexFilter = null;
+            if (Tool.Settings.UseRegexFiltering &&
+                ((Tool.Settings.RegexIncludePatterns != null && Tool.Settings.RegexIncludePatterns.Count > 0) ||
+                 (Tool.Settings.RegexExcludePatterns != null && Tool.Settings.RegexExcludePatterns.Count > 0)))
+            {
+                regexFilter = RegexFilterProcessor.FromSettings();
+            }
 
             for (int i = 0; i < video.Subtitles.Count; i++)
             {
-                Subtitle subtitle = video.Subtitles[i];
-                //Lines.Add(sentence);
-
-                for (int swear = 0; swear < video.SwearWordsFull.Count; swear++)
+                Subtitle subtitle = new Subtitle
                 {
-                    KeyValuePair<int, int> Indexes = SwearWord(subtitle.Text, video.SwearWordsFull[swear]);
-                    int begin = Indexes.Key;
-                    int end = Indexes.Value;
+                    Start = video.Subtitles[i].Start,
+                    End = video.Subtitles[i].End,
+                    RemoveFlag = video.Subtitles[i].RemoveFlag,
+                    Remove = new List<KeyValuePair<TimeSpan, TimeSpan>>(video.Subtitles[i].Remove),
+                    Text = video.Subtitles[i].Text
+                };
 
-                    while (begin != -1 && end != -1)
-                    {
-                        //Lines.RemoveAt(Lines.Count - 1);
-
-                        string censoredChar = "";
-
-                        foreach (char c in video.SwearWordsFull[swear])
-                            censoredChar += "*";
-
-                        subtitle.Text = subtitle.Text.Substring(0, begin) + censoredChar + subtitle.Text.Substring(end + 1);
-                        //Lines.Add(sentence);
-
-                        Indexes = SwearWord(subtitle.Text, video.SwearWordsFull[swear]);
-                        begin = Indexes.Key;
-                        end = Indexes.Value;
-                    }
+                // Apply regex filtering if enabled
+                if (regexFilter != null)
+                {
+                    subtitle.Text = regexFilter.CensorText(subtitle.Text);
                 }
 
+                // Apply exact word filtering
+                for (int swear = 0; swear < video.SwearWordsFull.Count; swear++)
+                {
+                    string word = video.SwearWordsFull[swear];
+                    CensorWord(subtitle, word);
+                }
+
+                // Apply single word filtering
                 for (int swear = 0; swear < video.SwearWordsSingle.Count; swear++)
                 {
-                    KeyValuePair<int, int> Indexes = SwearWord(subtitle.Text, video.SwearWordsSingle[swear]);
-                    int begin = Indexes.Key;
-                    int end = Indexes.Value;
-                    while (begin != -1 && end != -1)
-                    {
-                        //Lines.RemoveAt(Lines.Count - 1);
-
-                        string censoredChar = "";
-
-                        foreach (char c in video.SwearWordsSingle[swear])
-                            censoredChar += "*";
-
-                        subtitle.Text = subtitle.Text.Substring(0, begin) + censoredChar + subtitle.Text.Substring(end + 1);
-                        //Lines.Add(sentence);
-
-                        Indexes = SwearWord(subtitle.Text, video.SwearWordsSingle[swear]);
-                        begin = Indexes.Key;
-                        end = Indexes.Value;
-                    }
+                    string word = video.SwearWordsSingle[swear];
+                    CensorWord(subtitle, word);
                 }
 
                 video.SubtitlesNew.Add(subtitle);
+            }
+        }
+
+        /// <summary>
+        /// Censors all occurrences of a word in a subtitle's text.
+        /// </summary>
+        /// <param name="subtitle">The subtitle to censor.</param>
+        /// <param name="word">The word to censor.</param>
+        private static void CensorWord(Subtitle subtitle, string word)
+        {
+            KeyValuePair<int, int> indexes = SwearWord(subtitle.Text, word);
+            int begin = indexes.Key;
+            int end = indexes.Value;
+
+            while (begin != -1 && end != -1)
+            {
+                // Create a string of asterisks the same length as the word
+                System.Text.StringBuilder censoredText = new System.Text.StringBuilder(word.Length);
+                for (int i = 0; i < word.Length; i++)
+                {
+                    censoredText.Append('*');
+                }
+
+                // Replace the word with asterisks
+                subtitle.Text = subtitle.Text.Substring(0, begin) + censoredText.ToString() + subtitle.Text.Substring(end + 1);
+
+                // Find the next occurrence
+                indexes = SwearWord(subtitle.Text, word);
+                begin = indexes.Key;
+                end = indexes.Value;
             }
         }
 

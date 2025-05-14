@@ -1,0 +1,2 @@
+# This file has been deprecated.
+# Please use JSON configuration files instead.
